@@ -222,11 +222,24 @@ public class WhatsAppGUI extends JFrame {
     }
 
     // Aggiorna l'area dei messaggi con i messaggi per il contatto selezionato
+    // Aggiorna l'area dei messaggi con i messaggi per il contatto selezionato
     private void updateMessageArea(Contact contact) {
-        StringBuilder messages = messagesMap.getOrDefault(contact, new StringBuilder());
-        messageArea.setText(contact.name() + "\n" + messages.toString());
+        messageArea.setText(""); // Clear the message area before updating
+
+        // Find the selected contact in the contactsListModel
+        for (int i = 0; i < contactsListModel.getSize(); i++) {
+            Contact storedContact = contactsListModel.getElementAt(i);
+            if (storedContact != null && storedContact.equals(contact)) {
+                StringBuilder messages = messagesMap.getOrDefault(storedContact, new StringBuilder());
+                // Append each message for the selected contact in the message area
+                for (String message : messages.toString().split("\n")) {
+                    messageArea.append(storedContact.getName() + ": " + message + "\n");
+                }
+                break; // No need to continue searching once the match is found
+            }
+        }
     }
-    
+
     // Metodo per la validazione dell'email utilizzando un'espressione regolare
     private boolean validaEmail(String email) {
         // Espressione regolare per la validazione dell'email
@@ -273,19 +286,19 @@ public class WhatsAppGUI extends JFrame {
                     String line = in.readLine();
                     if (line != null) {
                         if(line.split(" - ").length == 3) {
-                            String email = line.split(" - ", 2)[1];
-                            String message = line.split(" - ", 2)[1];
+                            String senderEmail = line.split(" - ", 3)[1];
+                            String message = line.split(" - ", 3)[2];
                             String nome = "null";
                             for (int i = 0; i < contactsListModel.getSize(); i++) {
                                 Contact contatto = contactsListModel.getElementAt(i);
-                                if (contatto != null && Objects.equals(contatto.getEmail(), email)) {
+                                if (contatto != null && Objects.equals(contatto.getEmail(), senderEmail)) {
                                     nome = contatto.getName();
                                     break; // No need to continue searching once the match is found
                                 }
                             }
-                            messagesMap.put(new Contact(nome, email), new StringBuilder(message));
-                            if(Objects.equals(contactsList.getSelectedValue().getEmail(), email)) {
-                                messageArea.append(line + "\n");
+                            messagesMap.put(new Contact(nome, senderEmail), new StringBuilder(message));
+                            if(Objects.equals(contactsList.getSelectedValue().getEmail(), senderEmail)) {
+                                messageArea.append(nome + ": " + message + "\n");
                             }
                         }
                     } else {
