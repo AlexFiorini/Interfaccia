@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class WhatsAppGUI extends JFrame {
+public class ChatGUI extends JFrame {
 
     private final DefaultListModel<Contact> contactsListModel;
     private final JList<Contact> contactsList;
@@ -27,11 +27,11 @@ public class WhatsAppGUI extends JFrame {
     private static final int PORT = 12345;
     private BufferedReader in;
     private PrintWriter out;
-    public String serverAddress = "192.168.7.158"; // Indirizzo IP del server, modificare se necessario
+    public String serverAddress = "192.168.178.196"; // Indirizzo IP del server, modificare se necessario
     public String senderEmail;
 
-    public WhatsAppGUI() {
-        setTitle("WhatsApp Web");
+    public ChatGUI() {
+        setTitle("Chatta liberamente");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(800, 600);
         setLocationRelativeTo(null); // Centra la finestra al centro dello schermo
@@ -111,15 +111,15 @@ public class WhatsAppGUI extends JFrame {
                     out = new PrintWriter(socket.getOutputStream(), true);
 
                     out.println(emailField.getText());
-
-                    Thread receiverThread = new Thread(new MessageReceiver());
+                    loadMessagesFromFile();
+                    Thread receiverThread = new Thread(new MessageReceiver(senderEmail));
                     receiverThread.start();
 
                     // Puoi anche chiudere il socket quando non ne hai più bisogno
                     // socket.close();
 
                     // Effettua il login utilizzando l'email
-                    JOptionPane.showMessageDialog(WhatsAppGUI.this, "Accesso effettuato con successo!");
+                    JOptionPane.showMessageDialog(ChatGUI.this, "Accesso effettuato con successo!");
 
                     // Mostra il pannello dei contatti e dei messaggi dopo il login
                     contactsPanel.setVisible(true);
@@ -127,10 +127,10 @@ public class WhatsAppGUI extends JFrame {
                     loginPanel.setVisible(false);
                 } catch (IOException ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(WhatsAppGUI.this, "Errore durante la connessione al server.", "Errore", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(ChatGUI.this, "Errore durante la connessione al server.", "Errore", JOptionPane.ERROR_MESSAGE);
                 }
             } else {
-                JOptionPane.showMessageDialog(WhatsAppGUI.this, "Inserisci un indirizzo email valido!", "Errore", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(ChatGUI.this, "Inserisci un indirizzo email valido!", "Errore", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -139,7 +139,7 @@ public class WhatsAppGUI extends JFrame {
             if (!e.getValueIsAdjusting()) {
                 selectedContact = contactsList.getSelectedValue();
                 if (selectedContact != null) {
-                    setTitle("WhatsApp Web - " + selectedContact.name());
+                    setTitle("Chat con " + selectedContact.name());
                     updateMessageArea(selectedContact);
                 }
             }
@@ -152,7 +152,7 @@ public class WhatsAppGUI extends JFrame {
             if (!e.getValueIsAdjusting()) {
                 selectedContact = contactsList.getSelectedValue();
                 if (selectedContact != null) {
-                    setTitle("WhatsApp Web - " + selectedContact.getName());
+                    setTitle("Chat con " + selectedContact.getName());
                     updateMessageArea(selectedContact);
                 }
             }
@@ -160,8 +160,8 @@ public class WhatsAppGUI extends JFrame {
 
         // Listener per il pulsante Aggiungi Contatto
         addButton.addActionListener(e -> {
-            String name = JOptionPane.showInputDialog(WhatsAppGUI.this, "Inserisci il nome del nuovo contatto:");
-            String email = JOptionPane.showInputDialog(WhatsAppGUI.this, "Inserisci l'email del nuovo contatto:");
+            String name = JOptionPane.showInputDialog(ChatGUI.this, "Inserisci il nome del nuovo contatto:");
+            String email = JOptionPane.showInputDialog(ChatGUI.this, "Inserisci l'email del nuovo contatto:");
             if (name != null && !name.trim().isEmpty() && validaEmail(email)) {
                 Contact newContact = new Contact(name, email);
                 contactsListModel.addElement(newContact);
@@ -172,7 +172,7 @@ public class WhatsAppGUI extends JFrame {
         // Listener per il pulsante Rimuovi Contatto
         removeButton.addActionListener(e -> {
             if (selectedContact != null) {
-                int choice = JOptionPane.showConfirmDialog(WhatsAppGUI.this, "Sei sicuro di voler rimuovere il contatto?", "Conferma Rimozione", JOptionPane.YES_NO_OPTION);
+                int choice = JOptionPane.showConfirmDialog(ChatGUI.this, "Sei sicuro di voler rimuovere il contatto?", "Conferma Rimozione", JOptionPane.YES_NO_OPTION);
                 if (choice == JOptionPane.YES_OPTION) {
                     contactsListModel.removeElement(selectedContact);
                     messagesMap.remove(selectedContact);
@@ -201,7 +201,7 @@ public class WhatsAppGUI extends JFrame {
         }
 
         SwingUtilities.invokeLater(() -> {
-            WhatsAppGUI app = new WhatsAppGUI();
+            ChatGUI app = new ChatGUI();
             app.setVisible(true);
         });
     }
@@ -212,30 +212,36 @@ public class WhatsAppGUI extends JFrame {
         if (selectedContact != null && !message.isEmpty()) {
             messageArea.append("Tu: " + message + "\n");
             StringBuilder messages = messagesMap.getOrDefault(selectedContact, new StringBuilder());
-            messages.append("Tu: ").append(message).append("\n");
+            messages.append("\nTu: ").append(message).append("\n");
             messagesMap.put(selectedContact, messages);
             out.println(selectedContact.email() + " - " + senderEmail + " - " + message);
             messageField.setText("");
+            saveMessage(selectedContact, senderEmail, message);
         } else {
             JOptionPane.showMessageDialog(this, "Seleziona un contatto e inserisci un messaggio.");
         }
     }
 
     // Aggiorna l'area dei messaggi con i messaggi per il contatto selezionato
-    // Aggiorna l'area dei messaggi con i messaggi per il contatto selezionato
     private void updateMessageArea(Contact contact) {
-        messageArea.setText(""); // Clear the message area before updating
+        messageArea.setText(""); // Resetta l'area di messaggio
 
-        // Find the selected contact in the contactsListModel
+        // Trova il contatto selezionato da contactsListModel
         for (int i = 0; i < contactsListModel.getSize(); i++) {
             Contact storedContact = contactsListModel.getElementAt(i);
             if (storedContact != null && storedContact.equals(contact)) {
                 StringBuilder messages = messagesMap.getOrDefault(storedContact, new StringBuilder());
-                // Append each message for the selected contact in the message area
+                // Fai append per il contatto selezionato
                 for (String message : messages.toString().split("\n")) {
-                    messageArea.append(storedContact.getName() + ": " + message + "\n");
+                    if(messages.length() > 0) {
+                        if(message.contains("Tu:")) {
+                            messageArea.append(message + "\n");
+                        } else {
+                            messageArea.append(storedContact.getName() + ": " + message + "\n");
+                        }
+                    }
                 }
-                break; // No need to continue searching once the match is found
+                break; // Match
             }
         }
     }
@@ -279,7 +285,72 @@ public class WhatsAppGUI extends JFrame {
         }
     }
 
+    private void saveMessage(Contact contact, String sender, String message) {
+        if(!contact.getEmail().equals(sender)) {
+            try (PrintWriter writer = new PrintWriter(new FileWriter("messaggi.txt", true))) {
+                writer.println("Contatto: " + contact.getName());
+                writer.println("Da: " + sender);
+                writer.println("Messaggio: " + message);
+                writer.println(); // Aggiungi una riga vuota per separare i messaggi
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void loadMessagesFromFile() {
+        try (BufferedReader reader = new BufferedReader(new FileReader("messaggi.txt"))) {
+            String line;
+            StringBuilder message = new StringBuilder();
+            Contact currentContact = null;
+            String sender = null;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("Contatto: ")) {
+                    String contactName = line.substring("Contatto: ".length());
+                    currentContact = findContactByName(contactName);
+                } else if (line.startsWith("Da: ")) {
+                    sender = line.substring("Da: ".length());
+                } else if (line.startsWith("Messaggio: ")) {
+                    message.append(line.substring("Messaggio: ".length())).append("\n");
+                } else if (line.isEmpty()) {
+                    if (currentContact != null && sender != null && !message.toString().isEmpty()) {
+                        // Aggiungi il messaggio alla mappa dei messaggi
+                        StringBuilder messages = messagesMap.getOrDefault(currentContact, new StringBuilder());
+                        if(sender.equals(senderEmail)) {
+                            message.insert(0, "Tu: ");
+                            messages.append(message);
+                        } else {
+                            messages.append(message);
+                        }
+                        messagesMap.put(currentContact, messages);
+
+                        currentContact = null;
+                        sender = null;
+                        message = new StringBuilder();
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private Contact findContactByName(String name) {
+        for (int i = 0; i < contactsListModel.getSize(); i++) {
+            Contact contact = contactsListModel.getElementAt(i);
+            if (contact.getName().equals(name)) {
+                return contact;
+            }
+        }
+        return null;
+    }
+
     private class MessageReceiver implements Runnable {
+        String mail;
+
+        MessageReceiver(String mail) {
+            this.mail = mail;
+        }
         public void run() {
             while (true) {
                 try {
@@ -293,16 +364,23 @@ public class WhatsAppGUI extends JFrame {
                                 Contact contatto = contactsListModel.getElementAt(i);
                                 if (contatto != null && Objects.equals(contatto.getEmail(), senderEmail)) {
                                     nome = contatto.getName();
-                                    break; // No need to continue searching once the match is found
+                                    break; // Match
                                 }
                             }
-                            messagesMap.put(new Contact(nome, senderEmail), new StringBuilder(message));
+                            Contact sender = new Contact(nome, senderEmail);
+                            StringBuilder messaggiprecedenti = messagesMap.get(sender);
+                            StringBuilder messaggio = messaggiprecedenti.append(message);
+                            messagesMap.put(sender, messaggio);
+                            saveMessage(sender, senderEmail, message);
                             if(Objects.equals(contactsList.getSelectedValue().getEmail(), senderEmail)) {
-                                messageArea.append(nome + ": " + message + "\n");
+                                //Non mostrare doppioni se si mandano messaggi a sé stessi
+                                if(!mail.equals(senderEmail)) {
+                                    messageArea.append(nome + ": " + message + "\n");
+                                }
                             }
                         }
                     } else {
-                        break; // Exit the loop if the stream is closed
+                        break;
                     }
                 } catch (IOException e) {
                     throw new RuntimeException(e);
