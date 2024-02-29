@@ -12,4 +12,8 @@ record Contact(String name, String email) implements Serializable {
     public String getName() {
         return name;
     }
+
+    public String getEmail() {
+        return email;
+    }
 }

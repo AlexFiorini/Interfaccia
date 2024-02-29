@@ -9,6 +9,7 @@ import java.io.*;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class WhatsAppGUI extends JFrame {
 
@@ -26,7 +27,8 @@ public class WhatsAppGUI extends JFrame {
     private static final int PORT = 12345;
     private BufferedReader in;
     private PrintWriter out;
-    public String serverAddress = "192.168.178.196"; // Indirizzo IP del server, modificare se necessario
+    public String serverAddress = "192.168.7.158"; // Indirizzo IP del server, modificare se necessario
+    public String senderEmail;
 
     public WhatsAppGUI() {
         setTitle("WhatsApp Web");
@@ -102,6 +104,7 @@ public class WhatsAppGUI extends JFrame {
             String email = emailField.getText();
 
             if(validaEmail(email)) {
+                senderEmail = email;
                 try {
                     Socket socket = new Socket(serverAddress, PORT);
                     in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -211,7 +214,7 @@ public class WhatsAppGUI extends JFrame {
             StringBuilder messages = messagesMap.getOrDefault(selectedContact, new StringBuilder());
             messages.append("Tu: ").append(message).append("\n");
             messagesMap.put(selectedContact, messages);
-            out.println(selectedContact.email() + " - " + message);
+            out.println(selectedContact.email() + " - " + senderEmail + " - " + message);
             messageField.setText("");
         } else {
             JOptionPane.showMessageDialog(this, "Seleziona un contatto e inserisci un messaggio.");
@@ -269,8 +272,22 @@ public class WhatsAppGUI extends JFrame {
                 try {
                     String line = in.readLine();
                     if (line != null) {
-                        System.out.println(line);
-                        messageArea.append(line + "\n");
+                        if(line.split(" - ").length == 3) {
+                            String email = line.split(" - ", 2)[1];
+                            String message = line.split(" - ", 2)[1];
+                            String nome = "null";
+                            for (int i = 0; i < contactsListModel.getSize(); i++) {
+                                Contact contatto = contactsListModel.getElementAt(i);
+                                if (contatto != null && Objects.equals(contatto.getEmail(), email)) {
+                                    nome = contatto.getName();
+                                    break; // No need to continue searching once the match is found
+                                }
+                            }
+                            messagesMap.put(new Contact(nome, email), new StringBuilder(message));
+                            if(Objects.equals(contactsList.getSelectedValue().getEmail(), email)) {
+                                messageArea.append(line + "\n");
+                            }
+                        }
                     } else {
                         break; // Exit the loop if the stream is closed
                     }
